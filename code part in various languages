@@ -1,0 +1,700 @@
+#Part 1: Setting up the Django backend and database
+#Create a new Django project and app.
+##(bash)
+django-admin startproject projectname
+cd projectname
+python manage.py startapp appname
+
+
+#Set up a MySQL database for the project.
+In the settings.py file:
+##(arduino)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'databasename',
+        'USER': 'username',
+        'PASSWORD': 'password',
+        'HOST': 'localhost',
+        'PORT': '3306',
+    }
+}
+
+
+#Define the models for the events and user profiles, with fields as ('event_name', 'data', 'time', 'location', 'image', 'is_liked') for the events table and fields for the user profiles table.
+##(css)
+from django.db import models
+from django.contrib.auth.models import User
+
+class Event(models.Model):
+    event_name = models.CharField(max_length=255)
+    data = models.DateField()
+    time = models.TimeField()
+    location = models.CharField(max_length=255)
+    image = models.ImageField(upload_to='images/')
+    is_liked = models.BooleanField(default=False)
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # other fields for user profile
+
+#Define the serializers for the models.
+##(kotlin)
+from rest_framework import serializers
+from .models import Event, UserProfile
+
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = ('id', 'event_name', 'data', 'time', 'location', 'image', 'is_liked')
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ('id', 'user', ...)
+
+
+
+# Then we should Create the views for the API endpoints for user registration, login, event creation, event listing, and event liking/unliking, using the Django Rest Framework.
+
+##(python)
+from rest_framework import generics, permissions
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.decorators import api_view
+from rest_framework.authtoken.models import Token
+from django.contrib.auth.models import User
+from .models import Event
+from .serializers import EventSerializer, UserProfileSerializer
+
+@api_view(['POST'])
+def registration_view(request):
+    # create new user and user profile
+    # return token and serialized user and profile
+
+@api_view(['POST'])
+def login_view(request):
+    # authenticate user and return token and serialized user and profile
+
+@api_view(['POST'])
+def event_create_view(request):
+    # create new event and return serialized event
+
+@api_view(['GET'])
+def event_list_view(request):
+    # list all events and return serialized events
+
+@api_view(['POST'])
+def event_like_view(request):
+    # toggle like for event and return serialized event
+
+class UserSpecificEventListView(generics.ListAPIView):
+    # list events for current user and return serialized events
+
+class UserSpecificEventCreateView(generics.CreateAPIView):
+    # create new event for current user and return serialized event
+
+#Configure the project to allow cross-origin resource sharing (CORS) for the React frontend to communicate with the Django backend.
+
+##(python)
+# install django-cors-headers
+pip install django-cors-headers
+
+# add to installed apps
+INSTALLED_APPS = [
+    ...
+    'corsheaders',
+    ...
+]
+
+# add middleware
+MIDDLEWARE = [
+    ...
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    ...
+]
+
+# add allowed origins
+CORS_ORIGIN_ALLOW_ALL = True
+
+
+
+#Part 2: Setting up the React frontend
+#Set up a new React app using create-react-app.
+##(lua)
+npx create-react-app appname
+
+
+#Install the necessary dependencies for the project, including axios for API requests, react-router-dom for routing, and react-icons for the heart icon
+
+npm install axios react-router-dom react-icons
+
+
+
+#Create the basic structure of the app with a Header, Tabs, EventList, EventForm, and LoginForm components.
+
+##(javascript)
+import React from 'react';
+import { BrowserRouter as Router, Switch, Route, Link } from 'react-router-dom';
+import { FaHeart } from 'react-icons/fa';
+
+function Header(props) {
+  return (
+    <header>
+      <h1>Event App</h1>
+      {props.isLoggedIn && (
+        <nav>
+          <Link to="/">Global</Link>
+          <Link to="/user-specific">User Specific</Link>
+          <Link to="/add-event">Add Event</Link>
+        </nav>
+      )}
+    </header>
+  );
+}
+
+function Tabs(props) {
+  return (
+    <div className="tabs">
+      <button onClick={() => props.setTab('global')}>Global</button>
+      <button onClick={() => props.setTab('user-specific')}>User Specific</button>
+    </div>
+  );
+}
+
+function EventList(props) {
+  return (
+    <div className="event-list">
+      {props.events.map(event => (
+        <div key={event.id} className="event">
+          <img src={event.image} alt={event.event_name} />
+          <h2>{event.event_name}</h2>
+          <p>{event.location}, {event.data} {event.time}</p>
+          <button onClick={() => props.handleLike(event)}>{
+            event.is_liked ? <FaHeart color="red" /> : <FaHeart color="white" />
+          }</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EventForm(props) {
+  return (
+    <form onSubmit={props.handleSubmit}>
+      <label>Event Name</label>
+      <input type="text" name="event_name" required />
+
+      <label>Date</label>
+      <input type="date" name="data" required />
+
+      <label>Time</label>
+      <input type="time" name="time" required />
+
+      <label>Location</label>
+      <input type="text" name="location" required />
+
+      <label>Image</label>
+      <input type="file" name="image" accept="image/*" required />
+
+      <button type="submit">Add Event</button>
+    </form>
+  );
+}
+
+function LoginForm(props) {
+  return (
+    <form onSubmit={props.handleSubmit}>
+      <label>Username</label>
+      <input type="text" name="username" required />
+
+      <label>Password</label>
+      <input type="password" name="password" required />
+
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+
+
+#Create the main App component and use the useState hook to manage the state of the app, including the current tab, events, and login status.
+
+##(javascript)
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
+import Header from './Header';
+import Tabs from './Tabs';
+import EventList from './EventList';
+import EventForm from './EventForm';
+import LoginForm from './LoginForm';
+
+function App() {
+  const [tab, setTab]
+
+
+useState('global');
+const [events, setEvents] = useState([]);
+const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+// Fetch all events from the server
+useEffect(() => {
+axios.get('/api/events/')
+.then(res => setEvents(res.data))
+.catch(err => console.log(err));
+}, []);
+
+// Handle liking/unliking an event
+const handleLike = (event) => {
+axios.patch(/api/events/${event.id}/, { is_liked: !event.is_liked })
+.then(res => {
+const updatedEvent = res.data;
+const updatedEvents = events.map(e => {
+if (e.id === updatedEvent.id) {
+return updatedEvent;
+}
+return e;
+});
+setEvents(updatedEvents);
+})
+.catch(err => console.log(err));
+};
+
+// Handle submitting a new event form
+const handleSubmit = (event) => {
+event.preventDefault();
+const formData = new FormData(event.target);
+axios.post('/api/events/', formData)
+.then(res => {
+const newEvent = res.data;
+setEvents([...events, newEvent]);
+})
+.catch(err => console.log(err));
+event.target.reset();
+};
+
+// Handle submitting a login form
+const handleLogin = (event) => {
+event.preventDefault();
+const formData = new FormData(event.target);
+axios.post('/api/auth/login/', formData)
+.then(res => {
+setIsLoggedIn(true);
+localStorage.setItem('token', res.data.token);
+})
+.catch(err => console.log(err));
+event.target.reset();
+};
+
+return (
+<Router>
+<div className="App">
+<Header isLoggedIn={isLoggedIn} />
+<Switch>
+<Route exact path="/">
+<Tabs setTab={setTab} />
+<EventList events={events} handleLike={handleLike} />
+</Route>
+{isLoggedIn && (
+<Route path="/user-specific">
+<Tabs setTab={setTab} />
+<EventList events={events.filter(event => event.user === localStorage.getItem('username'))} handleLike={handleLike} />
+</Route>
+)}
+{isLoggedIn && (
+<Route path="/add-event">
+<Tabs setTab={setTab} />
+<EventForm handleSubmit={handleSubmit} />
+</Route>
+)}
+<Route path="/login">
+<LoginForm handleSubmit={handleLogin} />
+</Route>
+</Switch>
+</div>
+</Router>
+);
+}
+
+#export default App;
+
+##(mathematica)
+
+### Part 3: Setting up the Django backend
+
+#1. Set up a new Django project and app.
+
+django-admin startproject projectname
+cd projectname
+python manage.py startapp appname
+
+
+##2. Install the necessary dependencies for the project, including `djangorestframework`, `django-cors-headers`, and `Pillow`.(markdown)
+
+pip install djangorestframework django-cors-headers Pillow
+
+
+##3. Configure the `settings.py` file to include the installed apps and middleware.(markdown)
+INSTALLED_APPS = [
+'django.contrib.admin',
+'django.contrib.auth',
+'django.contrib.contenttypes',
+'django.contrib.sessions',
+'django.contrib.messages',
+'django.contrib.staticfiles',
+'corsheaders',
+'rest_framework',
+'appname',
+]
+
+MIDDLEWARE = [
+'django.middleware.security.SecurityMiddleware',
+'django.contrib.sessions.middleware.SessionMiddleware',
+'corsheaders.middleware.CorsMiddleware',
+'django.middleware.common.CommonMiddleware',
+'django.middleware.csrf.CsrfViewMiddleware',
+'django.contrib.auth.middleware.AuthenticationMiddleware',
+
+
+#Define the models for the app in the models.py file.
+
+##(python)
+from django.db import models
+from django.contrib.auth.models import User
+
+class Event(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    event_name = models.CharField(max_length=255)
+    date = models.DateField()
+    time = models.TimeField()
+    location = models.CharField(max_length=255)
+    image = models.ImageField(upload_to='events', blank=True)
+    is_liked = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.event_name
+
+#Create a serializer for the Event model in the serializers.py file.
+##(python)
+from rest_framework import serializers
+from .models import Event
+
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = '__all__'
+
+
+#Define the views for the app in the views.py file.
+
+##(python)
+from rest_framework import generics, permissions
+from .models import Event
+from .serializers import EventSerializer
+
+class EventList(generics.ListCreateAPIView):
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    queryset = Event.objects.all()
+    serializer_class = EventSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class EventDetail(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    queryset = Event.objects.all()
+    serializer_class = EventSerializer
+
+class UserEvents(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = EventSerializer
+
+    def get_queryset(self):
+        return Event.objects.filter(user=self.request.user)
+
+#Define the URL patterns for the app in the urls.py file
+##(python)
+from django.urls import path
+from rest_framework.urlpatterns import format_suffix_patterns
+from .views import EventList, EventDetail, UserEvents
+
+urlpatterns = [
+    path('events/', EventList.as_view()),
+    path('events/<int:pk>/', EventDetail.as_view()),
+    path('user-events/', UserEvents.as_view()),
+]
+
+urlpatterns = format_suffix_patterns(urlpatterns)
+
+
+#Configure the settings.py file to include the necessary settings for the Django REST Framework and the corsheaders middleware.
+##(python)
+INSTALLED_APPS = [
+    ...
+    'corsheaders',
+    'rest_framework',
+    'appname',
+]
+
+MIDDLEWARE = [
+    ...
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+}
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+
+#Create a new superuser for the app.
+
+python manage.py createsuperuser
+
+
+#Part 4: Testing the application
+#Start the development server for the Django backend.
+
+
+python manage.py runserver
+
+
+#Start the React frontend.
+##(sql)
+npm start
+
+#Open the application in a web browser and test the functionality, including registering and logging in as a user, adding new events, and liking/unliking events.
+
+#In the App.js file, define the React components for the login and registration pages
+##(jsx)
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+
+function Login() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  function handleUsernameChange(e) {
+    setUsername(e.target.value);
+  }
+
+  function handlePasswordChange(e) {
+    setPassword(e.target.value);
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    // Send login request to backend
+  }
+
+  return (
+    <div>
+      <h2>Login</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="username">Username: </label>
+          <input type="text" id="username" value={username} onChange={handleUsernameChange} />
+        </div>
+        <div>
+          <label htmlFor="password">Password: </label>
+          <input type="password" id="password" value={password} onChange={handlePasswordChange} />
+        </div>
+        <button type="submit">Submit</button>
+      </form>
+      <p>Don't have an account? <Link to="/register">Register here</Link>.</p>
+    </div>
+  );
+}
+
+function Register() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  function handleUsernameChange(e) {
+    setUsername(e.target.value);
+  }
+
+  function handlePasswordChange(e) {
+    setPassword(e.target.value);
+  }
+
+  function handleConfirmPasswordChange(e) {
+    setConfirmPassword(e.target.value);
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    // Send registration request to backend
+  }
+
+  return (
+    <div>
+      <h2>Register</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="username">Username: </label>
+          <input type="text" id="username" value={username} onChange={handleUsernameChange} />
+        </div>
+        <div>
+          <label htmlFor="password">Password: </label>
+          <input type="password" id="password" value={password} onChange={handlePasswordChange} />
+        </div>
+        <div>
+          <label htmlFor="confirm-password">Confirm Password: </label>
+          <input type="password" id="confirm-password" value={confirmPassword} onChange={handleConfirmPasswordChange} />
+        </div>
+        <button type="submit">Submit</button>
+      </form>
+      <p>Already have an account? <Link to="/login">Login here</Link>.</p>
+    </div>
+  );
+}
+
+#In the App.js file, define the React components for the global and user-specific event lists, as well as the form to add new events.
+##(jsx)
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+function GlobalEvents() {
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    axios.get('/api/events/')
+      .then(res => {
+        setEvents(res.data);
+      })
+      .catch(err => {
+        console.log(err);
+      });
+  }, []);
+
+  return (
+    <div>
+      <h2>Global Events</h2>
+      {events.map(event => (
+        <div key={event.id}>
+          <h3>{event.event_name}</h3>
+          <p>Date: {event.date}</p>
+          <p>Time: {event.time}</p>
+          <p>Location:
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+function UserSpecificEvents() {
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    axios.get('/api/events/user/')
+      .then(res => {
+        setEvents(res.data);
+      })
+      .catch(err => {
+        console.log(err);
+      });
+  }, []);
+
+  return (
+    <div>
+      <h2>User-Specific Events</h2>
+      {events.map(event => (
+        <div key={event.id}>
+          <h3>{event.event_name}</h3>
+          <p>Date: {event.date}</p>
+          <p>Time: {event.time}</p>
+          <p>Location: {event.location}</p>
+          <img src={event.image} alt={event.event_name} />
+        </div>
+      ))}
+      <button>Add New Event</button>
+    </div>
+  );
+}
+
+function NewEventForm() {
+  const [eventData, setEventData] = useState({
+    event_name: '',
+    date: '',
+    time: '',
+    location: '',
+    image: null
+  });
+
+  function handleInputChange(e) {
+    const { name, value } = e.target;
+    setEventData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+  }
+
+  function handleImageChange(e) {
+    setEventData(prevState => ({
+      ...prevState,
+      image: e.target.files[0]
+    }));
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append('event_name', eventData.event_name);
+    formData.append('date', eventData.date);
+    formData.append('time', eventData.time);
+    formData.append('location', eventData.location);
+    formData.append('image', eventData.image);
+    axios.post('/api/events/', formData)
+      .then(res => {
+        console.log(res.data);
+        // Clear form data
+        setEventData({
+          event_name: '',
+          date: '',
+          time: '',
+          location: '',
+          image: null
+        });
+      })
+      .catch(err => {
+        console.log(err);
+      });
+  }
+
+  return (
+    <div>
+      <h2>Add New Event</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="event-name">Event Name: </label>
+          <input type="text" id="event-name" name="event_name" value={eventData.event_name} onChange={handleInputChange} />
+        </div>
+        <div>
+          <label htmlFor="date">Date: </label>
+          <input type="date" id="date" name="date" value={eventData.date} onChange={handleInputChange} />
+        </div>
+        <div>
+          <label htmlFor="time">Time: </label>
+          <input type="time" id="time" name="time" value={eventData.time} onChange={handleInputChange} />
+        </div>
+        <div>
+          <label htmlFor="location">Location: </label>
+          <input type="text" id="location" name="location" value={eventData.location} onChange={handleInputChange} />
+        </div>
+        <div>
+          <label htmlFor="image">Image: </label>
+          <input type="file" id="image" name="image" onChange={handleImageChange} />
+        </div>
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  );
+}
+These five parts should give will a good starting point for building a dynamic web app in React.js, using MySQL and Django REST framework as the backend. 
